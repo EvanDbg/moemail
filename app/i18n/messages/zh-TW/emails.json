@@ -18,9 +18,11 @@
   "list": {
     "emailCount": "{count}/{max} 個郵箱",
     "emailCountUnlimited": "{count}/∞ 個郵箱",
+    "searchPlaceholder": "搜尋郵箱地址",
     "loading": "載入中...",
     "loadingMore": "載入更多...",
     "noEmails": "還沒有郵箱，建立一個吧！",
+    "noSearchResults": "找不到符合的郵箱地址",
     "expiresAt": "過期時間",
     "permanent": "永久有效",
     "deleteConfirm": "確認刪除",

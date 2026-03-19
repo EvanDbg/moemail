@@ -18,9 +18,11 @@
   "list": {
     "emailCount": "{count}/{max} 個のメールボックス",
     "emailCountUnlimited": "{count}/∞ 個のメールボックス",
+    "searchPlaceholder": "メールアドレスを検索",
     "loading": "読み込み中...",
     "loadingMore": "さらに読み込み中...",
     "noEmails": "まだメールボックスがありません。作成しましょう！",
+    "noSearchResults": "一致するメールアドレスが見つかりません",
     "expiresAt": "有効期限",
     "permanent": "永久",
     "deleteConfirm": "削除の確認",

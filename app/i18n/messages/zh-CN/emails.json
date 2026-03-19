@@ -18,9 +18,11 @@
   "list": {
     "emailCount": "{count}/{max} 个邮箱",
     "emailCountUnlimited": "{count}/∞ 个邮箱",
+    "searchPlaceholder": "搜索邮箱地址",
     "loading": "加载中...",
     "loadingMore": "加载更多...",
     "noEmails": "还没有邮箱，创建一个吧！",
+    "noSearchResults": "未找到匹配的邮箱地址",
     "expiresAt": "过期时间",
     "permanent": "永久有效",
     "deleteConfirm": "确认删除",

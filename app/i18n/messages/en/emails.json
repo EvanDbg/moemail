@@ -18,9 +18,11 @@
   "list": {
     "emailCount": "{count}/{max} emails",
     "emailCountUnlimited": "{count}/∞ emails",
+    "searchPlaceholder": "Search email address",
     "loading": "Loading...",
     "loadingMore": "Loading more...",
     "noEmails": "No emails yet, create one!",
+    "noSearchResults": "No matching email addresses found",
     "expiresAt": "Expires",
     "permanent": "Permanent",
     "deleteConfirm": "Confirm Delete",
