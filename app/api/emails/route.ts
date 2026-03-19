@@ -12,15 +12,26 @@ const PAGE_SIZE = 20
 export async function GET(request: Request) {
   const userId = await getUserId()
 
+  if (!userId) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const cursor = searchParams.get('cursor')
+  const search = searchParams.get('search')?.trim().toLowerCase() ?? ''
   
   const db = createDb()
 
   try {
     const baseConditions = and(
-      eq(emails.userId, userId!),
-      gt(emails.expiresAt, new Date())
+      eq(emails.userId, userId),
+      gt(emails.expiresAt, new Date()),
+      search
+        ? sql`LOWER(${emails.address}) LIKE ${`%${search.replace(/[\\%_]/g, '\\$&')}%`} ESCAPE '\\'`
+        : undefined
     )
 
     const totalResult = await db.select({ count: sql<number>`count(*)` })
