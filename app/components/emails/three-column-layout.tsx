@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { useTranslations } from "next-intl"
 import { EmailList } from "./email-list"
 import { MessageListContainer } from "./message-list-container"
@@ -42,6 +42,15 @@ export function ThreeColumnLayout() {
     copyToClipboard(selectedEmail?.address || "")
   }
 
+  const handleEmailSelectDesktop = useCallback((email: Email | null) => {
+    setSelectedEmail(email)
+    setSelectedMessageId(null)
+  }, [])
+
+  const handleEmailSelectMobile = useCallback((email: Email | null) => {
+    setSelectedEmail(email)
+  }, [])
+
   const handleMessageSelect = (messageId: string | null, messageType: 'received' | 'sent' = 'received') => {
     setSelectedMessageId(messageId)
     setSelectedMessageType(messageType)
@@ -61,10 +70,7 @@ export function ThreeColumnLayout() {
           </div>
           <div className="flex-1 overflow-auto">
             <EmailList
-              onEmailSelect={(email) => {
-                setSelectedEmail(email)
-                setSelectedMessageId(null)
-              }}
+              onEmailSelect={handleEmailSelectDesktop}
               selectedEmailId={selectedEmail?.id}
             />
           </div>
@@ -77,9 +83,13 @@ export function ThreeColumnLayout() {
                 <div className="w-full flex justify-between items-center gap-2">
                   <div className="flex items-center gap-2">
                     <span className="truncate min-w-0">{selectedEmail.address}</span>
-                    <div className="shrink-0 cursor-pointer text-primary" onClick={copyEmailAddress}>
+                    <button
+                      type="button"
+                      className="shrink-0 text-primary"
+                      onClick={copyEmailAddress}
+                    >
                       <Copy className="size-4" />
-                    </div>
+                    </button>
                   </div>
                   {selectedEmail && canSendEmails && (
                     <SendDialog 
@@ -135,9 +145,7 @@ export function ThreeColumnLayout() {
               </div>
               <div className="flex-1 overflow-auto">
                 <EmailList
-                  onEmailSelect={(email) => {
-                    setSelectedEmail(email)
-                  }}
+                  onEmailSelect={handleEmailSelectMobile}
                   selectedEmailId={selectedEmail?.id}
                 />
               </div>
@@ -148,6 +156,7 @@ export function ThreeColumnLayout() {
             <div className="h-full flex flex-col">
               <div className={cn(headerClass, "gap-2")}>
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedEmail(null)
                   }}
@@ -158,9 +167,13 @@ export function ThreeColumnLayout() {
                 <div className="flex-1 flex justify-between items-center gap-2 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="truncate min-w-0 flex-1 text-right">{selectedEmail.address}</span>
-                    <div className="shrink-0 cursor-pointer text-primary" onClick={copyEmailAddress}>
+                    <button
+                      type="button"
+                      className="shrink-0 text-primary"
+                      onClick={copyEmailAddress}
+                    >
                       <Copy className="size-4" />
-                    </div>
+                    </button>
                   </div>
                   {canSendEmails && (
                     <SendDialog 
@@ -186,6 +199,7 @@ export function ThreeColumnLayout() {
             <div className="h-full flex flex-col">
               <div className={headerClass}>
                 <button
+                  type="button"
                   onClick={() => setSelectedMessageId(null)}
                   className="text-sm text-primary"
                 >
