@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Share2, Copy, Trash2, Link2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -38,6 +38,7 @@ import { EXPIRY_OPTIONS } from "@/types/email"
 interface ShareDialogProps {
   emailId: string
   emailAddress: string
+  onTriggerClick?: (event: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 interface ShareLink {
@@ -48,7 +49,7 @@ interface ShareLink {
   enabled: boolean
 }
 
-export function ShareDialog({ emailId }: ShareDialogProps) {
+export function ShareDialog({ emailId, onTriggerClick }: ShareDialogProps) {
   const t = useTranslations("emails.share")
   const { toast } = useToast()
   const { copyToClipboard } = useCopy()
@@ -60,7 +61,7 @@ export function ShareDialog({ emailId }: ShareDialogProps) {
   const [expiryTime, setExpiryTime] = useState(EXPIRY_OPTIONS[1].value.toString())
   const [deleteTarget, setDeleteTarget] = useState<ShareLink | null>(null)
 
-  const fetchShares = async () => {
+  const fetchShares = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/emails/${emailId}/share`)
@@ -78,7 +79,7 @@ export function ShareDialog({ emailId }: ShareDialogProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [emailId, t, toast])
 
   const createShare = async () => {
     try {
@@ -158,14 +159,13 @@ export function ShareDialog({ emailId }: ShareDialogProps) {
     if (open) {
       fetchShares()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [fetchShares, open])
 
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onTriggerClick}>
             <Share2 className="h-4 w-4" />
           </Button>
         </DialogTrigger>

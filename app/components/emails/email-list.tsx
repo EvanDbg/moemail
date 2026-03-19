@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useTranslations } from "next-intl"
 import { CreateDialog } from "./create-dialog"
@@ -8,6 +8,7 @@ import { ShareDialog } from "./share-dialog"
 import { Mail, RefreshCw, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { useThrottle } from "@/hooks/use-throttle"
 import { EMAIL_CONFIG } from "@/config"
 import { useToast } from "@/components/ui/use-toast"
@@ -56,20 +57,56 @@ export function EmailList({ onEmailSelect, selectedEmailId }: EmailListProps) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [emailToDelete, setEmailToDelete] = useState<Email | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const { toast } = useToast()
+  const activeRequestIdRef = useRef(0)
+  const emailsRef = useRef<Email[]>([])
 
-  const fetchEmails = async (cursor?: string) => {
+  useEffect(() => {
+    emailsRef.current = emails
+  }, [emails])
+
+  const fetchEmails = useCallback(async (options?: {
+    cursor?: string
+    search?: string
+    resetList?: boolean
+  }) => {
+    const cursor = options?.cursor
+    const search = options?.search ?? debouncedSearchQuery
+    const resetList = options?.resetList ?? false
+    const requestId = resetList ? activeRequestIdRef.current + 1 : activeRequestIdRef.current
+
+    if (resetList) {
+      activeRequestIdRef.current = requestId
+    }
+
     try {
       const url = new URL("/api/emails", window.location.origin)
       if (cursor) {
         url.searchParams.set('cursor', cursor)
       }
+      const normalizedSearch = search.trim()
+      if (normalizedSearch) {
+        url.searchParams.set('search', normalizedSearch)
+      }
       const response = await fetch(url)
       const data = await response.json() as EmailResponse
+
+      if (requestId !== activeRequestIdRef.current) {
+        return
+      }
       
       if (!cursor) {
+        if (resetList) {
+          setEmails(data.emails)
+          setNextCursor(data.nextCursor)
+          setTotal(data.total)
+          return
+        }
+
         const newEmails = data.emails
-        const oldEmails = emails
+        const oldEmails = emailsRef.current
 
         const lastDuplicateIndex = newEmails.findIndex(
           newEmail => oldEmails.some(oldEmail => oldEmail.id === newEmail.id)
@@ -96,11 +133,11 @@ export function EmailList({ onEmailSelect, selectedEmailId }: EmailListProps) {
       setRefreshing(false)
       setLoadingMore(false)
     }
-  }
+  }, [debouncedSearchQuery])
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await fetchEmails()
+    await fetchEmails({ search: debouncedSearchQuery })
   }
 
   const handleScroll = useThrottle((e: React.UIEvent<HTMLDivElement>) => {
@@ -112,13 +149,31 @@ export function EmailList({ onEmailSelect, selectedEmailId }: EmailListProps) {
 
     if (remainingScroll <= threshold && nextCursor) {
       setLoadingMore(true)
-      fetchEmails(nextCursor)
+      fetchEmails({ cursor: nextCursor, search: debouncedSearchQuery })
     }
   }, 200)
 
   useEffect(() => {
-    if (session) fetchEmails()
-  }, [session])
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [searchQuery])
+
+  useEffect(() => {
+    if (!session) {
+      return
+    }
+
+    setLoading(true)
+    setRefreshing(false)
+    setLoadingMore(false)
+    setEmails([])
+    setNextCursor(null)
+    onEmailSelect(null)
+    fetchEmails({ search: debouncedSearchQuery, resetList: true })
+  }, [debouncedSearchQuery, fetchEmails, onEmailSelect, session])
 
   const handleDelete = async (email: Email) => {
     try {
@@ -163,26 +218,34 @@ export function EmailList({ onEmailSelect, selectedEmailId }: EmailListProps) {
   return (
     <>
       <div className="flex flex-col h-full">
-        <div className="p-2 flex justify-between items-center border-b border-primary/20">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className={cn("h-8 w-8", refreshing && "animate-spin")}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <span className="text-xs text-gray-500">
-              {role === ROLES.EMPEROR ? (
-                t("emailCountUnlimited", { count: total })
-              ) : (
-                t("emailCount", { count: total, max: config?.maxEmails || EMAIL_CONFIG.MAX_ACTIVE_EMAILS })
-              )}
-            </span>
+        <div className="p-2 flex flex-col gap-2 border-b border-primary/20">
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("searchPlaceholder")}
+            className="h-8"
+          />
+          <div className="flex justify-between items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className={cn("h-8 w-8 shrink-0", refreshing && "animate-spin")}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-gray-500 truncate">
+                {role === ROLES.EMPEROR ? (
+                  t("emailCountUnlimited", { count: total })
+                ) : (
+                  t("emailCount", { count: total, max: config?.maxEmails || EMAIL_CONFIG.MAX_ACTIVE_EMAILS })
+                )}
+              </span>
+            </div>
+            <CreateDialog onEmailCreated={handleRefresh} />
           </div>
-          <CreateDialog onEmailCreated={handleRefresh} />
         </div>
         
         <div className="flex-1 overflow-auto p-2" onScroll={handleScroll}>
@@ -193,33 +256,41 @@ export function EmailList({ onEmailSelect, selectedEmailId }: EmailListProps) {
               {emails.map(email => (
                 <div
                   key={email.id}
-                  className={cn("flex items-center gap-2 p-2 rounded cursor-pointer text-sm group",
-                    "hover:bg-primary/5",
+                  className={cn(
+                    "flex items-center gap-2 rounded text-sm group",
                     selectedEmailId === email.id && "bg-primary/10"
                   )}
-                  onClick={() => onEmailSelect(email)}
                 >
-                  <Mail className="h-4 w-4 text-primary/60" />
-                  <div className="truncate flex-1">
-                    <div className="font-medium truncate">{email.address}</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(email.expiresAt).getFullYear() === 9999 ? (
-                        t("permanent")
-                      ) : (
-                        `${t("expiresAt")}: ${new Date(email.expiresAt).toLocaleString()}`
-                      )}
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "h-auto flex-1 justify-start gap-2 p-2 text-left hover:bg-primary/5",
+                      selectedEmailId === email.id && "bg-primary/10 hover:bg-primary/10"
+                    )}
+                    onClick={() => onEmailSelect(email)}
+                  >
+                    <Mail className="h-4 w-4 shrink-0 text-primary/60" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{email.address}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(email.expiresAt).getFullYear() === 9999 ? (
+                          t("permanent")
+                        ) : (
+                          `${t("expiresAt")}: ${new Date(email.expiresAt).toLocaleString()}`
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="opacity-0 group-hover:opacity-100 flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <ShareDialog emailId={email.id} emailAddress={email.address} />
+                  </Button>
+                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 pr-2">
+                    <ShareDialog
+                      emailId={email.id}
+                      emailAddress={email.address}
+                    />
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEmailToDelete(email)
-                      }}
+                      onClick={() => setEmailToDelete(email)}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -234,7 +305,7 @@ export function EmailList({ onEmailSelect, selectedEmailId }: EmailListProps) {
             </div>
           ) : (
             <div className="text-center text-sm text-gray-500">
-              {t("noEmails")}
+              {debouncedSearchQuery ? t("noSearchResults") : t("noEmails")}
             </div>
           )}
         </div>
